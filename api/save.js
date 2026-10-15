@@ -1,7 +1,6 @@
 const OWNER = "sachinqzqz-web";
 const REPO = "vega-app";
 const PATH = "provider-config.json";
-const ALLOWED = new Set(["movieBoxWeb", "flixhq", "tmdb", "consumet", "animepahe", "aniwatch"]);
 
 module.exports = async function handler(req, res) {
   res.setHeader("Cache-Control", "no-store");
@@ -13,6 +12,11 @@ module.exports = async function handler(req, res) {
   const provider = typeof req.body?.defaultProvider === "string" ? req.body.defaultProvider.trim() : "";
   if (!/^[A-Za-z0-9_-]{2,64}$/.test(provider)) return res.status(400).json({ error: "Enter a valid provider ID." });
   try {
+    const manifestResponse = await fetch("https://raw.githubusercontent.com/sachinqzqz-web/vega-providers/main/manifest.json", { headers: { "Cache-Control": "no-cache" } });
+    if (!manifestResponse.ok) throw new Error("Could not validate against the live provider manifest.");
+    const manifest = await manifestResponse.json();
+    const selected = Array.isArray(manifest) ? manifest.find(item => item?.value === provider && !item?.disabled) : null;
+    if (!selected) return res.status(400).json({ error: "Choose an enabled provider from the live provider list." });
     const headers = { Authorization: `Bearer ${token}`, Accept: "application/vnd.github+json", "X-GitHub-Api-Version": "2022-11-28" };
     const url = `https://api.github.com/repos/${OWNER}/${REPO}/contents/${PATH}`;
     const currentResponse = await fetch(url + "?ref=main", { headers });
