@@ -25,7 +25,7 @@ function sanitizeUI(input, currentUI) {
     {id:"movies",type:"movies",title:"MOVIES",visible:true}
   ];
   if (!sections.length) throw new Error("At least one section configuration is required.");
-  return { hamburgerVisible: source.hamburgerVisible !== false, useServerLabels: source.useServerLabels !== false, sections };
+  const categories = Array.isArray(source.categories) ? source.categories.slice(0, 20).filter(c => c && typeof c.id === "string" && typeof c.title === "string").map((c, i) => ({ id: c.id.slice(0, 40) || "category-" + i, title: c.title.trim().slice(0, 50) || "Untitled category", visible: c.visible !== false, providers: Array.isArray(c.providers) ? c.providers.filter(p => typeof p === "string" && /^[A-Za-z0-9_-]{2,64}$/.test(p)).slice(0, 50) : [] })) : currentUI?.categories || [];\n  const featuredMovieIds = Array.isArray(source.featuredMovieIds) ? source.featuredMovieIds.filter(id => typeof id === "string").slice(0, 200) : currentUI?.featuredMovieIds || [];\n  return { hamburgerVisible: source.hamburgerVisible !== false, useServerLabels: source.useServerLabels !== false, sections, categories, featuredMovieIds };
 }
 module.exports = async function handler(req, res) {
   res.setHeader("Cache-Control", "no-store");
