@@ -26,8 +26,9 @@ function sanitizeUI(input, currentUI) {
   ];
   if (!sections.length) throw new Error("At least one section configuration is required.");
   const categories = Array.isArray(source.categories) ? source.categories.slice(0, 20).filter(c => c && typeof c.id === "string" && typeof c.title === "string").map((c, i) => ({ id: c.id.slice(0, 40) || "category-" + i, title: c.title.trim().slice(0, 50) || "Untitled category", visible: c.visible !== false, providers: Array.isArray(c.providers) ? c.providers.filter(p => typeof p === "string" && /^[A-Za-z0-9_-]{2,64}$/.test(p)).slice(0, 50) : [] })) : currentUI?.categories || [];
-  const featuredMovieIds = Array.isArray(source.featuredMovieIds) ? source.featuredMovieIds.filter(id => typeof id === "string").slice(0, 200) : currentUI?.featuredMovieIds || [];
-  return { hamburgerVisible: source.hamburgerVisible !== false, useServerLabels: source.useServerLabels !== false, sections, categories, featuredMovieIds };
+  const featuredMovies = Array.isArray(source.featuredMovies) ? source.featuredMovies.slice(0, 200).filter(m => m && typeof m.id === "string" && typeof m.title === "string").map(m => ({ id: m.id.trim().slice(0, 600), title: m.title.trim().slice(0, 100) })).filter(m => m.id && m.title) : currentUI?.featuredMovies || [];
+  const featuredMovieIds = featuredMovies.length ? featuredMovies.map(m => m.id) : (Array.isArray(source.featuredMovieIds) ? source.featuredMovieIds.filter(id => typeof id === "string").slice(0, 200) : currentUI?.featuredMovieIds || []);
+  return { hamburgerVisible: source.hamburgerVisible !== false, useServerLabels: source.useServerLabels !== false, sections, categories, featuredMovies, featuredMovieIds };
 }
 module.exports = async function handler(req, res) {
   res.setHeader("Cache-Control", "no-store");
