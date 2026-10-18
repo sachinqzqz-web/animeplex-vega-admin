@@ -13,6 +13,20 @@ function validCookie(req, secret) {
   const issued = Number(parts[0]);
   return issued <= Date.now() && Date.now() - issued < 30 * 24 * 60 * 60 * 1000;
 }
+const VALID_TYPES = new Set(["trending", "series", "movies", "anime", "drama"]);
+function sanitizeUI(input, currentUI) {
+  const source = input && typeof input === "object" ? input : currentUI || {};
+  const rawSections = Array.isArray(source.sections) ? source.sections : currentUI?.sections;
+  const sections = Array.isArray(rawSections) ? rawSections.slice(0, 12).filter(s =>
+    s && typeof s.id === "string" && VALID_TYPES.has(s.type) && typeof s.title === "string"
+  ).map((s, i) => ({ id: s.id.slice(0, 40) || "section-" + i, type: s.type, title: s.title.trim().slice(0, 60) || "Untitled section", visible: s.visible !== false })) : [
+    {id:"trending",type:"trending",title:"🔥  TRENDING NOW",visible:true},
+    {id:"series",type:"series",title:"WEB SERIES",visible:true},
+    {id:"movies",type:"movies",title:"MOVIES",visible:true}
+  ];
+  if (!sections.length) throw new Error("At least one section configuration is required.");
+  return { hamburgerVisible: source.hamburgerVisible !== false, useServerLabels: source.useServerLabels !== false, sections };
+}
 module.exports = async function handler(req, res) {
   res.setHeader("Cache-Control", "no-store");
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
@@ -28,27 +42,17 @@ module.exports = async function handler(req, res) {
     const manifest = await manifestResponse.json();
     const selected = Array.isArray(manifest) ? manifest.find(item => item?.value === provider && !item?.disabled) : null;
     if (!selected) return res.status(400).json({ error: "Choose an enabled provider from the live provider list." });
-    const headers = { Authorization: `Bearer ${token}`, Accept: "application/vnd.github+json", "X-GitHub-Api-Version": "2022-11-28" };
-    const url = `https://api.github.com/repos/${OWNER}/${REPO}/contents/${PATH}`;
+    const headers = { Authorization: "Bearer " + token, Accept: "application/vnd.github+json", "X-GitHub-Api-Version": "2022-11-28" };
+    const url = "https://api.github.com/repos/" + OWNER + "/" + REPO + "/contents/" + PATH;
     const currentResponse = await fetch(url + "?ref=main", { headers });
     if (!currentResponse.ok) throw new Error("Could not read current config from GitHub.");
     const currentFile = await currentResponse.json();
     const currentConfig = JSON.parse(Buffer.from(currentFile.content, "base64").toString("utf8"));
-    const nextConfig = { ...currentConfig, defaultProvider: provider };
-    const saveResponse = await fetch(url, {
-      method: "PUT",
-      headers: { ...headers, "Content-Type": "application/json" },
-      body: JSON.stringify({
-        message: `Admin: set default provider to ${provider}`,
-        content: Buffer.from(JSON.stringify(nextConfig, null, 2) + "\n").toString("base64"),
-        sha: currentFile.sha,
-        branch: "main"
-      })
-    });
+    const ui = sanitizeUI(req.body?.ui, currentConfig.ui);
+    const nextConfig = { ...currentConfig, defaultProvider: provider, ui };
+    const saveResponse = await fetch(url, { method: "PUT", headers: { ...headers, "Content-Type": "application/json" }, body: JSON.stringify({ message: "Admin: publish provider and AnimePlex UI settings", content: Buffer.from(JSON.stringify(nextConfig, null, 2) + "\n").toString("base64"), sha: currentFile.sha, branch: "main" }) });
     const saved = await saveResponse.json();
     if (!saveResponse.ok) throw new Error(saved.message || "GitHub rejected the config update.");
-    return res.status(200).json({ ok: true, defaultProvider: provider, commitUrl: saved.commit?.html_url });
-  } catch (error) {
-    return res.status(502).json({ error: error.message || "Failed to save configuration." });
-  }
-};
+    return res.status(200).json({ ok: true, defaultProvider: provider, ui, commitUrl: saved.commit?.html_url });
+  } catch (error) { return res.status(502).json({ error: error.message || "Failed to save configuration." }); }
+}
