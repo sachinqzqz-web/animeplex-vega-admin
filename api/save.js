@@ -13,7 +13,8 @@ function validCookie(req, secret) {
   const issued = Number(parts[0]);
   return issued <= Date.now() && Date.now() - issued < 30 * 24 * 60 * 60 * 1000;
 }
-const VALID_TYPES = new Set(["trending", "series", "movies", "anime", "drama"]);\nconst VALID_MEDIA_TYPES = new Set(["movie", "series", "anime", "drama"]);
+const VALID_TYPES = new Set(["trending", "series", "movies", "anime", "drama"]);
+const VALID_MEDIA_TYPES = new Set(["movie", "series", "anime", "drama"]);
 function sanitizeUI(input, currentUI) {
   const source = input && typeof input === "object" ? input : currentUI || {};
   const rawSections = Array.isArray(source.sections) ? source.sections : currentUI?.sections;
@@ -28,7 +29,8 @@ function sanitizeUI(input, currentUI) {
   const categories = Array.isArray(source.categories) ? source.categories.slice(0, 20).filter(c => c && typeof c.id === "string" && typeof c.title === "string").map((c, i) => ({ id: c.id.slice(0, 40) || "category-" + i, title: c.title.trim().slice(0, 50) || "Untitled category", visible: c.visible !== false, providers: Array.isArray(c.providers) ? c.providers.filter(p => typeof p === "string" && /^[A-Za-z0-9_-]{2,64}$/.test(p)).slice(0, 50) : [] })) : currentUI?.categories || [];
   const featuredMovies = Array.isArray(source.featuredMovies) ? source.featuredMovies.slice(0, 200).filter(m => m && typeof m.id === "string" && typeof m.title === "string").map(m => ({ id: m.id.trim().slice(0, 600), title: m.title.trim().slice(0, 100) })).filter(m => m.id && m.title) : currentUI?.featuredMovies || [];
   const featuredMovieIds = featuredMovies.length ? featuredMovies.map(m => m.id) : (Array.isArray(source.featuredMovieIds) ? source.featuredMovieIds.filter(id => typeof id === "string").slice(0, 200) : currentUI?.featuredMovieIds || []);
-  return { hamburgerVisible: source.hamburgerVisible !== false, useServerLabels: source.useServerLabels !== false, sections, categories, featuredMovies, featuredMovieIds };
+  const managedTitles = Array.isArray(source.managedTitles) ? source.managedTitles.slice(0, 500).filter(m => m && typeof m.id === "string" && typeof m.title === "string" && VALID_MEDIA_TYPES.has(m.kind) && typeof m.link === "string" && /^https?:\/\//i.test(m.link)).map(m => ({ id: m.id.slice(0, 700), title: m.title.trim().slice(0, 120), kind: m.kind, link: m.link.slice(0, 2000), posterUrl: typeof m.posterUrl === "string" && /^https?:\/\//i.test(m.posterUrl) ? m.posterUrl.slice(0, 2000) : "", providerValues: Array.isArray(m.providerValues) ? m.providerValues.filter(p => typeof p === "string" && /^[A-Za-z0-9_-]{2,64}$/.test(p)).slice(0, 50) : [], language: ["auto", "hi", "original"].includes(m.language) ? m.language : "auto", visible: m.visible !== false, addedAt: typeof m.addedAt === "string" ? m.addedAt.slice(0, 40) : "" })).filter(m => m.id && m.title) : currentUI?.managedTitles || [];
+  return { hamburgerVisible: source.hamburgerVisible !== false, useServerLabels: source.useServerLabels !== false, sections, categories, featuredMovies, featuredMovieIds, managedTitles };
 }
 module.exports = async function handler(req, res) {
   res.setHeader("Cache-Control", "no-store");
