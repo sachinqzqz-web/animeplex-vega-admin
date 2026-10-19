@@ -13,7 +13,7 @@ function validCookie(req, secret) {
   const issued = Number(parts[0]);
   return issued <= Date.now() && Date.now() - issued < 30 * 24 * 60 * 60 * 1000;
 }
-const VALID_TYPES = new Set(["trending", "series", "movies", "anime", "drama"]);
+const VALID_TYPES = new Set(["trending", "series", "movies", "anime", "drama"]);\nconst VALID_MEDIA_TYPES = new Set(["movie", "series", "anime", "drama"]);
 function sanitizeUI(input, currentUI) {
   const source = input && typeof input === "object" ? input : currentUI || {};
   const rawSections = Array.isArray(source.sections) ? source.sections : currentUI?.sections;
